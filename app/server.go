@@ -5,10 +5,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 )
-
-var _ = net.Listen
-var _ = os.Exit
 
 func main() {
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
@@ -20,34 +18,43 @@ func main() {
 
 	defer listener.Close()
 
-	fmt.Println("Server is listening on port 8080")
+	fmt.Println("Server is listening on port 4221")
 
 	for {
 		// Block until we receive an incoming connection
-		conn, err := listener.Accept()
+		req, err := listener.Accept()
+
 		if err != nil {
 			fmt.Println("Error:", err)
 			continue
 		}
 
-		// Handle client connection
-		handleClient(conn)
+		// Handle client request
+		handleRequest(req)
 	}
 }
 
-func handleClient(conn net.Conn) {
+func handleRequest(req net.Conn) {
 	// Ensure we close the connection after we're done
-	defer conn.Close()
+	defer req.Close()
 
-	// Read data
-	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
+	checkRequestUrlExists(req)
+}
+
+func checkRequestUrlExists(req net.Conn) {
+	reqData := make([]byte, 1024)
+
+	_, err := req.Read(reqData)
+
 	if err != nil {
 		return
 	}
 
-	log.Println("Received data", buf[:n])
+	log.Println(string(reqData))
 
-	// Write the same data back
-	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	if !strings.HasPrefix(string(reqData), "GET / HTTP/1.1") {
+		req.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+	} else {
+		req.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	}
 }
